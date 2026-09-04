@@ -166,10 +166,12 @@ class LiveReverseImageSearchProvider(BaseSearchProvider):
         input_desc = str(image_input) if isinstance(image_input, (str, Path)) else f"bytes({len(image_input)} B)"
         print(f"[SEARCH] Input image received: {input_desc}")
 
+        if self.api_key is None:
+            self.api_key = get_config().search_api_key
+
         if not self.api_key:
             raise SearchProviderError(
-                "SerpAPI key not found. Please set SEARCH_API_KEY in your .env file or "
-                "supply it via the interface.\n"
+                "SerpAPI key not found. Please set SEARCH_API_KEY in your .env file.\n"
                 "-> To run offline without an API key, use '--mode offline' for the local demo corpus."
             )
 

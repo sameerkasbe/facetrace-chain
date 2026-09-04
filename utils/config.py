@@ -50,6 +50,8 @@ class AppConfig:
 
 def get_config() -> AppConfig:
     """Retrieve validated application configuration."""
+    load_dotenv(ROOT_DIR / ".env", override=True)
+    
     models_dir = ROOT_DIR / "models_cache"
     models_dir.mkdir(parents=True, exist_ok=True)
     
