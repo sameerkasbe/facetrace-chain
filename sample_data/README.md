@@ -5,12 +5,12 @@ This directory contains test assets intended exclusively for authorized demonstr
 ## Files Included
 
 1. **`sample_portrait_a.jpg`**:
-   - Single clear primary portrait of Albert Einstein (Public Domain via Wikimedia Commons).
-   - Use this to test normal end-to-end pipeline execution: face detection, 128-d embedding extraction, runtime public web search, verification, and on-chain record keeping.
+   - Single clear primary portrait of Abraham Lincoln (Public Domain via Library of Congress / Wikimedia Commons).
+   - Use this to test normal end-to-end pipeline execution: face detection, 128-d embedding extraction, reverse image search, verification, and on-chain record keeping.
 
 2. **`sample_portrait_b.jpg`**:
-   - Single clear primary portrait of Abraham Lincoln (Public Domain via Wikimedia Commons).
-   - Use this to demonstrate cross-person non-matching (`No Match` status).
+   - Single clear primary portrait of Albert Einstein (Public Domain via Wikimedia Commons).
+   - Use this to demonstrate cross-person testing and distinct facial embedding verification.
 
 3. **`sample_multi_face.jpg`**:
    - Stitched image containing two distinct faces.

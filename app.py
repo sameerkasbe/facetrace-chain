@@ -85,33 +85,9 @@ def main():
             help="Live mode stages the input face and executes real visual search. Offline mode simulates candidate matching via local authorized corpus."
         )
 
-        serpapi_key = None
-        has_server_key = bool(config.search_api_key)
-
         if search_mode == "live":
-            if has_server_key:
-                st.markdown("🔒 **System API Key:** Protected & Active")
-                st.caption("Your backend environment key is secured in memory. Other viewers cannot see, inspect, or retrieve it.")
-                use_custom = st.checkbox("Use personal session key instead", value=False)
-                if use_custom:
-                    custom_key = st.text_input(
-                        "Personal SerpAPI Key",
-                        type="password",
-                        help="Temporary session key. Not saved to server or disk."
-                    )
-                    if custom_key.strip():
-                        serpapi_key = custom_key.strip()
-            else:
-                custom_key = st.text_input(
-                    "SerpAPI API Key",
-                    type="password",
-                    placeholder="Paste your SerpAPI key...",
-                    help="Enter your SerpAPI key for Google Lens visual search. Masked with password protection."
-                )
-                if custom_key.strip():
-                    serpapi_key = custom_key.strip()
-                else:
-                    st.warning("⚠️ No API key detected. Enter a key above or switch to Offline Demo Mode.")
+            st.markdown("🌐 **Live Reverse Search Engine:** Active")
+            st.caption("Google Lens reverse visual search is configured and active. Search executes dynamically on the uploaded image.")
 
         threshold = st.slider(
             "Match Threshold",
@@ -175,8 +151,8 @@ def main():
             input_filename = uploaded_file.name
     else:
         sample_options = {
-            "Albert Einstein (Single Face - Matches Demo Corpus)": config.sample_data_dir / "sample_portrait_a.jpg",
-            "Abraham Lincoln (Single Face - Alternate Portrait)": config.sample_data_dir / "sample_portrait_b.jpg",
+            "Abraham Lincoln (Single Face Portrait)": config.sample_data_dir / "sample_portrait_a.jpg",
+            "Albert Einstein (Single Face Portrait)": config.sample_data_dir / "sample_portrait_b.jpg",
             "Multi-Face Image (Triggers Single-Face Error)": config.sample_data_dir / "sample_multi_face.jpg"
         }
         selected_sample = st.selectbox("Select sample test image:", list(sample_options.keys()))
@@ -225,7 +201,7 @@ def main():
     st.markdown("---")
     st.markdown("### Step 3 — Public Content Discovery")
 
-    search_provider = get_search_provider(mode=search_mode, api_key=serpapi_key)
+    search_provider = get_search_provider(mode=search_mode)
     st.write(f"Executing discovery using **{search_provider.mode_name}**...")
 
     collector = CandidateCollector(

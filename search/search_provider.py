@@ -150,7 +150,7 @@ class LiveReverseImageSearchProvider(BaseSearchProvider):
     SERPAPI_ENDPOINT = "https://serpapi.com/search.json"
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or get_config().search_api_key
+        self.api_key = api_key if api_key is not None else get_config().search_api_key
         self.uploader = TempImageUploader()
 
     @property
