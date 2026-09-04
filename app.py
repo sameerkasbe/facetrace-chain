@@ -58,15 +58,15 @@ st.markdown("""
 
 
 @st.cache_resource
-def load_core_modules():
-    config = get_config()
+def load_face_models():
     detector = FaceDetector()
     encoder = FaceEncoder()
-    return config, detector, encoder
+    return detector, encoder
 
 
 def main():
-    config, detector, encoder = load_core_modules()
+    config = get_config()
+    detector, encoder = load_face_models()
 
     st.markdown('<div class="main-header">FaceTrace Chain</div>', unsafe_allow_html=True)
     st.markdown(
