@@ -1,0 +1,21 @@
+# FaceTrace Chain — Core Dependencies
+
+# Computer Vision & Face Processing
+opencv-python>=4.8.0
+numpy>=1.24.0
+Pillow>=9.5.0
+
+# Blockchain & Ethereum Smart Contracts
+web3>=6.0.0
+py-solc-x>=2.0.0
+eth-tester>=0.11.0b1
+
+# Web & API Requests
+requests>=2.28.0
+python-dotenv>=1.0.0
+
+# Web Application Interface
+streamlit>=1.25.0
+
+# Testing & Verification
+pytest>=7.4.0
