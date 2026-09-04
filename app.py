@@ -85,16 +85,33 @@ def main():
             help="Live mode stages the input face and executes real visual search. Offline mode simulates candidate matching via local authorized corpus."
         )
 
-        serpapi_key = ""
+        serpapi_key = None
+        has_server_key = bool(config.search_api_key)
+
         if search_mode == "live":
-            serpapi_key = st.text_input(
-                "SerpAPI API Key",
-                value=config.search_api_key,
-                type="password",
-                help="Enter your SerpAPI key for Google Lens visual search. If blank, switch to Offline Demo Mode."
-            )
-            if not serpapi_key:
-                st.warning("⚠️ SerpAPI key not detected. Enter key above or switch to Offline Demo Mode.")
+            if has_server_key:
+                st.markdown("🔒 **System API Key:** Protected & Active")
+                st.caption("Your backend environment key is secured in memory. Other viewers cannot see, inspect, or retrieve it.")
+                use_custom = st.checkbox("Use personal session key instead", value=False)
+                if use_custom:
+                    custom_key = st.text_input(
+                        "Personal SerpAPI Key",
+                        type="password",
+                        help="Temporary session key. Not saved to server or disk."
+                    )
+                    if custom_key.strip():
+                        serpapi_key = custom_key.strip()
+            else:
+                custom_key = st.text_input(
+                    "SerpAPI API Key",
+                    type="password",
+                    placeholder="Paste your SerpAPI key...",
+                    help="Enter your SerpAPI key for Google Lens visual search. Masked with password protection."
+                )
+                if custom_key.strip():
+                    serpapi_key = custom_key.strip()
+                else:
+                    st.warning("⚠️ No API key detected. Enter a key above or switch to Offline Demo Mode.")
 
         threshold = st.slider(
             "Match Threshold",

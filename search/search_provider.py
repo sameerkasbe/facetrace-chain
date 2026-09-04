@@ -187,7 +187,10 @@ class LiveReverseImageSearchProvider(BaseSearchProvider):
             resp.raise_for_status()
             data = resp.json()
         except Exception as e:
-            raise SearchProviderError(f"SerpAPI Google Lens query failed: {e}")
+            err_msg = str(e)
+            if self.api_key and self.api_key in err_msg:
+                err_msg = err_msg.replace(self.api_key, "[PROTECTED_KEY]")
+            raise SearchProviderError(f"SerpAPI Google Lens query failed: {err_msg}")
 
         print("[SEARCH] Reverse image search executed via SerpAPI Google Lens")
 
