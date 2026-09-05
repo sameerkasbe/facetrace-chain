@@ -97,7 +97,8 @@ def deploy_contract(
 
     if w3 is None:
         print("Local RPC not reachable. Falling back to in-memory EthereumTesterProvider.")
-        w3 = Web3(EthereumTesterProvider())
+        from blockchain.client import get_shared_tester_provider
+        w3 = Web3(get_shared_tester_provider())
 
     accounts = w3.eth.accounts
     if not accounts and not private_key:
@@ -143,8 +144,9 @@ def deploy_contract(
     print(f"  Block number: {receipt.blockNumber}")
     print(f"  Gas used: {receipt.gasUsed}")
 
-    # Persist address in .env
-    update_env_file("BLOCKCHAIN_CONTRACT_ADDRESS", contract_address)
+    # Persist address in .env only if valid string
+    if contract_address and str(contract_address).lower() not in {"none", "null", "false", ""}:
+        update_env_file("BLOCKCHAIN_CONTRACT_ADDRESS", contract_address)
 
     return {
         "contract_address": contract_address,

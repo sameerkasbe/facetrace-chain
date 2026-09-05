@@ -1,11 +1,12 @@
-"""Modular public search and candidate collection module."""
+"""Modular reverse image search and candidate collection module."""
 from .search_provider import (
     BaseSearchProvider,
     TempImageUploader,
     LiveReverseImageSearchProvider,
-    OfflineDemoCorpusProvider,
+    PublicWebSearchProvider,
     SearchProviderError,
     get_search_provider,
+    classify_platform,
 )
 from .candidate_collector import CandidateCollector
 
@@ -13,8 +14,9 @@ __all__ = [
     "BaseSearchProvider",
     "TempImageUploader",
     "LiveReverseImageSearchProvider",
-    "OfflineDemoCorpusProvider",
+    "PublicWebSearchProvider",
     "SearchProviderError",
     "get_search_provider",
+    "classify_platform",
     "CandidateCollector",
 ]

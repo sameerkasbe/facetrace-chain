@@ -41,8 +41,23 @@ class VerificationRecord:
     tx_hash: Optional[str] = None
     block_number: Optional[int] = None
     details: str = ""
+    error_message: Optional[str] = None
+    stored_similarity: float = 0.0
+
+    @property
+    def is_authentic(self) -> bool:
+        return self.status == VerificationStatus.VERIFIED and self.hashes_match and self.on_chain_found
+
+    @property
+    def timestamp(self) -> Optional[int]:
+        return self.on_chain_timestamp
+
+    @property
+    def stored_url(self) -> Optional[str]:
+        return self.source_reference
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
         d["status"] = self.status.value
+        d["is_authentic"] = self.is_authentic
         return d

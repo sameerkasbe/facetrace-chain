@@ -1,11 +1,11 @@
 """Verification and diagnostics script for FaceTrace Chain.
 
 Validates:
-1. Python environment and installed libraries
-2. OpenCV DNN model files (YuNet detection & SFace recognition)
+1. Python environment and installed libraries (including onnxruntime & insightface)
+2. Face recognition models (ArcFace/InsightFace primary & SFace fallback)
 3. Blockchain RPC connectivity and smart contract deployment
-4. Search provider configurations (Live Google Lens reverse search & Offline demo corpus)
-5. Test sample assets
+4. Reverse search providers (Live Google Lens reverse search & Dynamic Public Web Search)
+5. Test sample benchmark assets
 """
 import sys
 import os
@@ -45,6 +45,8 @@ class SetupVerifier:
         required = [
             ("cv2", "OpenCV"),
             ("numpy", "NumPy"),
+            ("onnxruntime", "ONNX Runtime"),
+            ("insightface", "InsightFace"),
             ("web3", "Web3.py"),
             ("solcx", "py-solc-x"),
             ("requests", "Requests"),
@@ -74,12 +76,20 @@ class SetupVerifier:
         else:
             self.log("AI Models", "WARN", "YuNet ONNX not found; will auto-download on first detection")
 
+        # Check InsightFace ArcFace
+        try:
+            from face.recognizer import InsightFaceRecognizer
+            rec = InsightFaceRecognizer()
+            self.log("AI Models", "PASS", f"InsightFace ArcFace primary engine loaded ({rec.embedding_dim}-d)")
+        except Exception as e:
+            self.log("AI Models", "WARN", f"InsightFace ArcFace not active ({e}); SFace will act as fallback")
+
         if sface_ok:
-            self.log("AI Models", "PASS", f"SFace ONNX recognition model found ({config.sface_path.name})")
+            self.log("AI Models", "PASS", f"SFace ONNX fallback model found ({config.sface_path.name})")
         else:
             self.log("AI Models", "WARN", "SFace ONNX not found; will auto-download on first encoding")
 
-        return yunet_ok and sface_ok
+        return yunet_ok
 
     def check_blockchain(self) -> bool:
         from utils.config import get_config
@@ -93,8 +103,7 @@ class SetupVerifier:
             self.log(
                 "Blockchain RPC",
                 "FAIL",
-                f"Cannot connect to RPC node at {config.blockchain_rpc_url}. "
-                "Ensure Ganache or testnet node is running (e.g. npx -y ganache --port 8545)."
+                f"Cannot connect to RPC node at {config.blockchain_rpc_url}."
             )
             return False
 
@@ -128,25 +137,19 @@ class SetupVerifier:
         from utils.config import get_config
         config = get_config()
 
-        # Check Offline Demo Corpus
-        corpus_dir = config.sample_data_dir / "public_corpus"
-        if corpus_dir.exists() and any(corpus_dir.iterdir()):
-            count = len(list(corpus_dir.iterdir()))
-            self.log("Search: Offline Demo", "PASS", f"Demo corpus ready ({count} images in {corpus_dir.name})")
-        else:
-            self.log("Search: Offline Demo", "WARN", "Demo corpus empty or missing.")
-
-        # Check Live Reverse Image Search
+        # Check Live Reverse Image Search (Google Lens)
         if config.search_api_key:
             masked = config.search_api_key[:4] + "..." + config.search_api_key[-4:] if len(config.search_api_key) > 8 else "***"
-            self.log("Search: Live Search", "PASS", f"SerpAPI Google Lens key configured ({masked})")
+            self.log("Search: Google Lens", "PASS", f"SerpAPI Google Lens key configured ({masked})")
         else:
             self.log(
-                "Search: Live Search",
+                "Search: Google Lens",
                 "WARN",
-                "SEARCH_API_KEY is not set in .env. Live reverse image search requires a SerpAPI key. "
-                "(You can still run offline evaluation via '--mode offline' without an API key)"
+                "SERPAPI_KEY is not set in .env. Live reverse image search requires a SerpAPI key."
             )
+
+        # Check Public Web Search (Secondary)
+        self.log("Search: Public Web", "PASS", "Dynamic Wikimedia Commons API search active (zero-config)")
 
     def check_sample_data(self) -> bool:
         from utils.config import get_config

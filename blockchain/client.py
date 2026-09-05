@@ -14,8 +14,19 @@ from models.verification_record import BlockchainStoreResult
 from utils.config import get_config
 from blockchain.deploy import ARTIFACT_PATH, compile_contract
 
+_shared_tester_provider: Optional[EthereumTesterProvider] = None
+
+
+def get_shared_tester_provider() -> EthereumTesterProvider:
+    """Returns a singleton in-memory EthereumTesterProvider across clients."""
+    global _shared_tester_provider
+    if _shared_tester_provider is None:
+        _shared_tester_provider = EthereumTesterProvider()
+    return _shared_tester_provider
+
+
 class BlockchainClient:
-    """Interacts with the FaceVerification smart contract on Ethereum / Ganache."""
+    """Interacts with the FaceVerification smart contract on Ethereum / Ganache / In-Memory EVM."""
 
     def __init__(
         self,
@@ -25,7 +36,8 @@ class BlockchainClient:
     ):
         config = get_config()
         self.rpc_url = rpc_url or config.blockchain_rpc_url
-        self.contract_address = contract_address or config.blockchain_contract_address
+        raw_addr = contract_address if contract_address is not None else config.blockchain_contract_address
+        self.contract_address = raw_addr if (raw_addr and raw_addr.lower() not in {"none", "null", "false", ""}) else ""
         self.private_key = private_key or config.blockchain_private_key
         
         self.w3 = self._init_web3()
@@ -46,7 +58,7 @@ class BlockchainClient:
                 pass
 
         print("[WARN] Local RPC unavailable. Using in-memory EthereumTesterProvider.")
-        return Web3(EthereumTesterProvider())
+        return Web3(get_shared_tester_provider())
 
     def _load_abi(self) -> list:
         if ARTIFACT_PATH.exists():
@@ -57,9 +69,31 @@ class BlockchainClient:
         return abi
 
     def _init_contract(self, address: str):
-        checksum_address = Web3.to_checksum_address(address)
-        self.contract = self.w3.eth.contract(address=checksum_address, abi=self.abi)
-        self.contract_address = checksum_address
+        if not address or address.lower() in {"none", "null", "false", ""}:
+            self.contract = None
+            self.contract_address = ""
+            return
+        try:
+            checksum_address = Web3.to_checksum_address(address)
+            code = self.w3.eth.get_code(checksum_address)
+            if not code or code in {b"", b"\x00"}:
+                # No contract bytecode deployed at this address on current chain
+                self.contract = None
+                return
+            self.contract = self.w3.eth.contract(address=checksum_address, abi=self.abi)
+            self.contract_address = checksum_address
+        except Exception:
+            self.contract = None
+            self.contract_address = ""
+
+    def ensure_contract(self) -> str:
+        """Ensures the smart contract is deployed and bound to this client instance."""
+        if self.contract is not None:
+            return self.contract_address
+        from blockchain.deploy import deploy_contract
+        deploy_info = deploy_contract(rpc_url=self.rpc_url, private_key=self.private_key)
+        self._init_contract(deploy_info["contract_address"])
+        return self.contract_address
 
     def get_account(self) -> str:
         """Returns the default submitting account."""
@@ -84,6 +118,8 @@ class BlockchainClient:
         source_reference: str
     ) -> BlockchainStoreResult:
         """Anchors a content fingerprint on-chain."""
+        if self.contract is None:
+            self.ensure_contract()
         if self.contract is None:
             raise RuntimeError("Smart contract not initialized. Deploy contract first.")
 
@@ -156,7 +192,9 @@ class BlockchainClient:
     def query_verification(self, content_hash_hex: str) -> Optional[Dict[str, Any]]:
         """Queries on-chain record for a content hash."""
         if self.contract is None:
-            raise RuntimeError("Smart contract not initialized.")
+            self.ensure_contract()
+        if self.contract is None:
+            return None
 
         content_bytes32 = self._to_bytes32(content_hash_hex)
         try:
@@ -179,9 +217,34 @@ class BlockchainClient:
     def is_verified(self, content_hash_hex: str) -> bool:
         """Checks if a hash is stored on-chain."""
         if self.contract is None:
+            self.ensure_contract()
+        if self.contract is None:
             return False
         try:
             content_bytes32 = self._to_bytes32(content_hash_hex)
             return self.contract.functions.isContentVerified(content_bytes32).call()
         except Exception:
             return False
+
+    def record_face_verification(
+        self,
+        content_hash: str,
+        source_url: str,
+        similarity_score: float = 0.0,
+        metadata_json: str = "{}"
+    ) -> Dict[str, Any]:
+        """Convenience method for anchoring a verified face record, returning dict with receipt metadata."""
+        store_res = self.store_verification(content_hash, source_url)
+        return {
+            "transaction_hash": store_res.tx_hash,
+            "tx_hash": store_res.tx_hash,
+            "block_number": store_res.block_number,
+            "timestamp": store_res.timestamp,
+            "submitter": store_res.submitter,
+            "source_reference": store_res.source_reference,
+            "similarity_score": similarity_score,
+            "metadata_json": metadata_json,
+            "success": store_res.success,
+            "gas_used": store_res.gas_used,
+            "error_message": store_res.error_message
+        }

@@ -1,0 +1,32 @@
+{
+  "case_id": "FACETRACE-C009583454A3",
+  "verification_timestamp": "2026-09-04T16:20:01.528211+00:00",
+  "input": {
+    "image_hash": "f5e79a35f74b54e0435dfc87f5956d6917725e2f5b8c17932ecf5bad704e29b2",
+    "face_detected": true
+  },
+  "search": {
+    "provider": "Wikimedia Commons API (Secondary)",
+    "search_timestamp": "2026-09-04T16:19:40.042189+00:00",
+    "result_count": 15
+  },
+  "matched_content": {
+    "title": "Piazza Navona 1990 ritratto da cartellone - di Paolo Salvati",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Piazza_Navona_1990_ritratto_da_cartellone_-_di_Paolo_Salvati.jpg",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/0/07/Piazza_Navona_1990_ritratto_da_cartellone_-_di_Paolo_Salvati.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+    "source_domain": "commons.wikimedia.org",
+    "platform": "Wikimedia",
+    "snippet": "Wikimedia Commons public domain media: Piazza Navona 1990 ritratto da cartellone - di Paolo Salvati",
+    "author": "Paolo Salvati",
+    "content_identifier": "wikimedia_73513807",
+    "content_type": "image",
+    "category": "Posts & Images",
+    "overall_confidence": 0.3181,
+    "quality_label": "HIGH"
+  },
+  "face_verification": {
+    "similarity_score": 0.1009,
+    "threshold": 0.08,
+    "result": "MATCH"
+  }
+}

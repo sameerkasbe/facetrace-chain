@@ -34,18 +34,44 @@ def compute_sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _clean_for_canonical_json(obj: Any, unstable_keys: Optional[set] = None) -> Any:
+    """Recursively converts objects to JSON-serializable native types with deterministic floats."""
+    if unstable_keys is None:
+        unstable_keys = {"download_latency", "client_ip", "local_temp_path", "runtime_id"}
+
+    if isinstance(obj, dict):
+        return {
+            str(k): _clean_for_canonical_json(v, unstable_keys)
+            for k, v in sorted(obj.items())
+            if k not in unstable_keys and v is not None
+        }
+    elif isinstance(obj, (list, tuple)):
+        return [_clean_for_canonical_json(item, unstable_keys) for item in obj]
+    elif hasattr(obj, "ndim") and obj.ndim > 0 and hasattr(obj, "tolist"):
+        return [_clean_for_canonical_json(item, unstable_keys) for item in obj.tolist()]
+    elif hasattr(obj, "item"):  # numpy scalar (np.float32, np.int64, np.bool_, etc.)
+        val = obj.item()
+        if isinstance(val, float):
+            return round(val, 6)
+        return val
+    elif isinstance(obj, float):
+        return round(obj, 6)
+    elif isinstance(obj, (bool, int, str)):
+        return obj
+    elif hasattr(obj, "isoformat"):  # datetime / date objects
+        return obj.isoformat()
+    elif obj is None:
+        return None
+    return str(obj)
+
+
 def canonicalize_metadata(metadata: Optional[Dict[str, Any]] = None) -> str:
     """Serialize metadata dict into a deterministic JSON string with sorted keys."""
     if not metadata:
         return "{}"
     
-    # Exclude unstable runtime/ephemeral keys
-    unstable_keys = {"download_latency", "client_ip", "local_temp_path", "runtime_id"}
-    stable_dict = {
-        str(k): v for k, v in metadata.items()
-        if k not in unstable_keys and v is not None
-    }
-    return json.dumps(stable_dict, sort_keys=True, separators=(",", ":"))
+    cleaned = _clean_for_canonical_json(metadata)
+    return json.dumps(cleaned, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
 def create_content_fingerprint(
@@ -96,3 +122,40 @@ def verify_content_fingerprint(
         title=title
     )
     return recalculated_hex.lower() == expected_hex_hash.lower()
+
+
+def canonicalize_evidence_package(evidence_data: Any) -> str:
+    """Serializes an EvidencePackage or dict into a canonical deterministic JSON string.
+    
+    Ensures sorted keys, consistent key/value separation with no extra whitespace,
+    and exclusion of ephemeral/unstable runtime fields.
+    """
+    if hasattr(evidence_data, "to_dict"):
+        d = evidence_data.to_dict()
+    elif isinstance(evidence_data, dict):
+        d = dict(evidence_data)
+    else:
+        raise TypeError(f"Expected EvidencePackage or dict, got {type(evidence_data)}")
+
+    cleaned = _clean_for_canonical_json(d)
+    return json.dumps(cleaned, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def hash_evidence_package(evidence_data: Any) -> Tuple[str, str]:
+    """Generates deterministic SHA-256 fingerprint for a Search Evidence Package.
+    
+    Returns:
+        (hex_hash, bytes32_hex): The 64-char hex digest and '0x'-prefixed 32-byte representation.
+    """
+    canon_json = canonicalize_evidence_package(evidence_data)
+    hex_digest = hashlib.sha256(canon_json.encode("utf-8")).hexdigest()
+    bytes32_hex = "0x" + hex_digest
+    return hex_digest, bytes32_hex
+
+
+def verify_evidence_package(evidence_data: Any, expected_hex_hash: str) -> bool:
+    """Verifies whether recalculated SHA-256 of the evidence package matches the expected hash."""
+    recalculated_hex, _ = hash_evidence_package(evidence_data)
+    clean_expected = expected_hex_hash.lower().replace("0x", "").strip()
+    return recalculated_hex.lower() == clean_expected
+

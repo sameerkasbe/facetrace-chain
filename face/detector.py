@@ -30,11 +30,14 @@ class FaceDetectionResult:
 
         x, y, w, h = bbox
         img_h, img_w = image_bgr.shape[:2]
-        x1 = max(0, x)
-        y1 = max(0, y)
-        x2 = min(img_w, x + w)
-        y2 = min(img_h, y + h)
-        self.cropped_face = image_bgr[y1:y2, x1:x2].copy()
+        x1 = max(0, min(img_w - 1, int(x)))
+        y1 = max(0, min(img_h - 1, int(y)))
+        x2 = max(x1 + 1, min(img_w, int(x + w)))
+        y2 = max(y1 + 1, min(img_h, int(y + h)))
+        crop = image_bgr[y1:y2, x1:x2].copy()
+        if crop.size == 0:
+            crop = cv2.resize(image_bgr, (112, 112))
+        self.cropped_face = crop
 
     @property
     def confidence_pct(self) -> int:
@@ -114,11 +117,17 @@ class FaceDetector:
     def detect_all_faces(self, image: np.ndarray) -> List[Tuple[Tuple[int, int, int, int], float, Optional[np.ndarray]]]:
         """Returns all detected faces as a list of ((x, y, w, h), confidence, raw_entry)."""
         orig_h, orig_w = image.shape[:2]
+        if orig_h <= 0 or orig_w <= 0:
+            return []
         
         # Scale to optimal neural network detection dimension (max dim 800)
-        scale = min(1.0, 800.0 / max(orig_h, orig_w)) if max(orig_h, orig_w) > 800 else 1.0
+        max_dim = max(orig_h, orig_w)
+        scale = min(1.0, 800.0 / max_dim) if max_dim > 800 else 1.0
+        if scale <= 1e-6:
+            scale = 1.0
+
         if scale < 1.0:
-            det_w, det_h = int(orig_w * scale), int(orig_h * scale)
+            det_w, det_h = max(1, int(orig_w * scale)), max(1, int(orig_h * scale))
             det_img = cv2.resize(image, (det_w, det_h))
         else:
             det_w, det_h = orig_w, orig_h
@@ -130,13 +139,40 @@ class FaceDetector:
             _, faces = self.detector.detect(det_img)
             if faces is not None and len(faces) > 0:
                 for face in faces:
+                    if face is None or len(face) < 15:
+                        continue
+                    if not np.all(np.isfinite(face[:15])):
+                        continue
+
                     scaled_face = face.copy()
                     if scale < 1.0:
                         # Scale bounding box and 5 facial landmark points back to original coordinates
-                        scaled_face[0:14] = scaled_face[0:14] / scale
-                    box = (int(scaled_face[0]), int(scaled_face[1]), int(scaled_face[2]), int(scaled_face[3]))
-                    conf = float(scaled_face[-1])
-                    results.append((box, conf, scaled_face))
+                        scaled_face[0:14] = np.nan_to_num(
+                            scaled_face[0:14] / scale, nan=0.0, posinf=0.0, neginf=0.0
+                        )
+
+                    try:
+                        fx = float(scaled_face[0])
+                        fy = float(scaled_face[1])
+                        fw = float(scaled_face[2])
+                        fh = float(scaled_face[3])
+                        conf = float(scaled_face[-1])
+
+                        if not (np.isfinite(fx) and np.isfinite(fy) and np.isfinite(fw) and np.isfinite(fh) and np.isfinite(conf)):
+                            continue
+
+                        if conf < self.score_threshold or fw <= 0 or fh <= 0:
+                            continue
+
+                        x = max(0, min(orig_w - 1, int(round(fx))))
+                        y = max(0, min(orig_h - 1, int(round(fy))))
+                        w_box = max(1, min(orig_w - x, int(round(fw))))
+                        h_box = max(1, min(orig_h - y, int(round(fh))))
+
+                        box = (x, y, w_box, h_box)
+                        results.append((box, conf, scaled_face))
+                    except (OverflowError, ValueError):
+                        continue
 
         # If YuNet returned no faces, fallback to Haar Cascade
         if not results:
@@ -144,13 +180,25 @@ class FaceDetector:
             haar_faces = self.haar_detector.detectMultiScale(
                 gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30)
             )
-            for (x, y, w_f, h_f) in haar_faces:
-                if scale < 1.0:
-                    x = int(x / scale)
-                    y = int(y / scale)
-                    w_f = int(w_f / scale)
-                    h_f = int(h_f / scale)
-                results.append(((x, y, w_f, h_f), 0.85, None))
+            for (hx, hy, hw, hh) in haar_faces:
+                try:
+                    fx, fy, fw, fh = float(hx), float(hy), float(hw), float(hh)
+                    if scale < 1.0 and scale > 0:
+                        fx /= scale
+                        fy /= scale
+                        fw /= scale
+                        fh /= scale
+
+                    if not (np.isfinite(fx) and np.isfinite(fy) and np.isfinite(fw) and np.isfinite(fh)):
+                        continue
+
+                    x = max(0, min(orig_w - 1, int(round(fx))))
+                    y = max(0, min(orig_h - 1, int(round(fy))))
+                    w_f = max(1, min(orig_w - x, int(round(fw))))
+                    h_f = max(1, min(orig_h - y, int(round(fh))))
+                    results.append(((x, y, w_f, h_f), 0.85, None))
+                except (OverflowError, ValueError):
+                    continue
 
         return results
 
