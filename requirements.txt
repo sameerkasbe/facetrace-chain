@@ -1,7 +1,7 @@
 # FaceTrace Chain — Core Dependencies
 
 # Computer Vision, Deep Learning & Face Processing
-opencv-python>=4.8.0
+opencv-python==4.10.0.84
 numpy>=1.24.0
 Pillow>=9.5.0
 onnxruntime>=1.16.0
